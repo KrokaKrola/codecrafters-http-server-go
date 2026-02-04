@@ -17,8 +17,8 @@ func NewResponse(statusLine *StatusLine, headers *Headers, body *Body) *Response
 func (r *Response) Stringify() string {
 	statusLine := r.StatusLine.Stringify()
 
-	headers := "\r\n"
-	body := ""
+	headers := r.Headers.Stringify()
+	body := r.Body.Stringify()
 
 	return statusLine + headers + body
 }

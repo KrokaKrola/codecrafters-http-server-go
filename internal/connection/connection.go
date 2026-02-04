@@ -4,6 +4,8 @@ import (
 	"bufio"
 	"fmt"
 	"net"
+	"regexp"
+	"strconv"
 
 	"github.com/codecrafters-io/http-server-starter-go/internal/request"
 	"github.com/codecrafters-io/http-server-starter-go/internal/response"
@@ -40,28 +42,42 @@ func (c *Connection) Handle() {
 	fmt.Println("response", stringifiedResponse)
 
 	if _, err := c.writer.WriteString(stringifiedResponse); err != nil {
+		fmt.Printf("error while writing response: %e\r\n", err)
 		return
 	}
 
 	if err := c.writer.Flush(); err != nil {
+		fmt.Printf("error while trying to flush writer: %e\r\n", err)
 		return
 	}
 }
 
+var indexUrlRegexp = regexp.MustCompile(`^/($|index\.html$)`)
+var echoUrlRegexp = regexp.MustCompile(`^/echo/(\w+)$`)
+
 func (c *Connection) process(req *request.Request) *response.Response {
 	var resStatusLine *response.StatusLine
+	var resHeaders *response.Headers
+	var resBody *response.Body
 
-	switch req.StatusLine.Target {
-	case "/":
+	switch {
+	case indexUrlRegexp.MatchString(req.StatusLine.Target):
 		resStatusLine = response.New200StatusLine("HTTP/1.1")
-	case "/index.html":
+		resHeaders = response.NewHeaders()
+		resBody = response.NewBody()
+	case echoUrlRegexp.MatchString(req.StatusLine.Target):
+		submatches := echoUrlRegexp.FindStringSubmatch(req.StatusLine.Target)
 		resStatusLine = response.New200StatusLine("HTTP/1.1")
+		resHeaders = response.NewHeaders()
+		resHeaders.SetHeader("Content-Type", "text/plain")
+		resHeaders.SetHeader("Content-Length", strconv.Itoa(len(submatches[1])))
+		resBody = response.NewBody()
+		resBody.SetContent(submatches[1])
 	default:
 		resStatusLine = response.New404StatusLine("HTTP/1.1")
+		resHeaders = response.NewHeaders()
+		resBody = response.NewBody()
 	}
-
-	resHeaders := response.NewHeaders()
-	resBody := response.NewBody()
 
 	return response.NewResponse(resStatusLine, resHeaders, resBody)
 }

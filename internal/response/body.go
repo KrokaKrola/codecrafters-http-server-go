@@ -1,7 +1,15 @@
 package response
 
 type Body struct {
-	content []byte
+	content string
+}
+
+func (b *Body) Stringify() string {
+	return b.content
+}
+
+func (b *Body) SetContent(content string) {
+	b.content = content
 }
 
 func NewBody() *Body {

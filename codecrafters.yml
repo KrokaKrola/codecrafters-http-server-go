@@ -9,3 +9,4 @@ debug: true
 #
 # Available versions: go-1.25
 buildpack: go-1.25
+hints: false

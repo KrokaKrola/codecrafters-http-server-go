@@ -2,27 +2,18 @@ package main
 
 import (
 	"fmt"
-	"net"
 	"os"
+
+	"github.com/codecrafters-io/http-server-starter-go/internal/server"
 )
 
+const PORT = 4221
+const HOST = "0.0.0.0"
+
 func main() {
-	l, err := net.Listen("tcp", "0.0.0.0:4221")
-	if err != nil {
-		fmt.Println("Failed to bind to port 4221")
+	s := server.NewServer(HOST, PORT)
+	if err := s.Listen(); err != nil {
+		fmt.Println("err while trying to start server", err)
 		os.Exit(1)
-	}
-
-	conn, err := l.Accept()
-	if err != nil {
-		fmt.Println("Error accepting connection: ", err.Error())
-		os.Exit(1)
-	}
-
-	fmt.Println("connection accepted", conn.RemoteAddr().String())
-
-	if err := l.Close(); err != nil {
-		fmt.Println("Error closing listener: ", err.Error())
-		return
 	}
 }

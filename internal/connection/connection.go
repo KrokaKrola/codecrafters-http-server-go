@@ -28,7 +28,11 @@ func NewConnection(conn net.Conn) *Connection {
 
 func (c *Connection) Handle() {
 	req := request.NewRequest(c.reader)
-	req.Parse()
+	if err := req.Parse(); err != nil {
+		fmt.Printf("error while parsing request: %e\r\n", err)
+		return
+	}
+
 	res := c.process(req)
 
 	stringifiedResponse := res.Stringify()
@@ -45,9 +49,17 @@ func (c *Connection) Handle() {
 }
 
 func (c *Connection) process(req *request.Request) *response.Response {
-	fmt.Println("req", req)
+	var resStatusLine *response.StatusLine
 
-	resStatusLine := response.NewStatusLine("HTTP/1.1", "200", "OK")
+	switch req.StatusLine.Target {
+	case "/":
+		resStatusLine = response.New200StatusLine("HTTP/1.1")
+	case "/index.html":
+		resStatusLine = response.New200StatusLine("HTTP/1.1")
+	default:
+		resStatusLine = response.New404StatusLine("HTTP/1.1")
+	}
+
 	resHeaders := response.NewHeaders()
 	resBody := response.NewBody()
 

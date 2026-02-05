@@ -54,14 +54,14 @@ func (c *Connection) Handle() {
 }
 
 var indexUrlRegexp = regexp.MustCompile(`^/($|index\.html$)`)
-var echoUrlRegexp = regexp.MustCompile(`^/echo/(\w+)$`)
+var echoUrlRegexp = regexp.MustCompile(`^/echo/(\S+)$`)
 var userAgentRegexp = regexp.MustCompile(`^/user-agent(/)?$`)
-var filesUrlRegexp = regexp.MustCompile(`^/files/(\w+)$`)
+var filesUrlRegexp = regexp.MustCompile(`^/files/(\S+)$`)
 
 func (c *Connection) process(req *request.Request) *response.Response {
 	var resStatusLine *response.StatusLine
-	var resHeaders *response.Headers = response.NewHeaders()
-	var resBody *response.Body = response.NewBody()
+	resHeaders := response.NewHeaders()
+	resBody := response.NewBody()
 
 	switch {
 	case indexUrlRegexp.MatchString(req.StatusLine.Target):
@@ -86,14 +86,30 @@ func (c *Connection) process(req *request.Request) *response.Response {
 		submatches := filesUrlRegexp.FindStringSubmatch(req.StatusLine.Target)
 		path := filepath.Join(c.dirValue, submatches[1])
 
-		dat, err := os.ReadFile(path)
-		if err != nil {
-			resStatusLine = response.New404StatusLine(http.Version11)
-		} else {
-			resStatusLine = response.New200StatusLine(http.Version11)
-			resHeaders.SetHeader("Content-Type", "application/octet-stream")
-			resHeaders.SetHeader("Content-Length", strconv.Itoa(len(dat)))
-			resBody.SetContent(string(dat))
+		if req.StatusLine.HttpMethod == http.GET {
+			dat, err := os.ReadFile(path)
+			if err != nil {
+				resStatusLine = response.New404StatusLine(http.Version11)
+			} else {
+				resStatusLine = response.New200StatusLine(http.Version11)
+				resHeaders.SetHeader("Content-Type", "application/octet-stream")
+				resHeaders.SetHeader("Content-Length", strconv.Itoa(len(dat)))
+				resBody.SetContent(string(dat))
+			}
+		} else if req.StatusLine.HttpMethod == http.POST {
+			file, err := os.Create(path)
+			if err != nil {
+				resStatusLine = response.New500StatusLine(http.Version11)
+			} else {
+				if _, err := file.Write([]byte(req.Body.Content())); err != nil {
+					resStatusLine = response.New500StatusLine(http.Version11)
+				}
+
+				if err := file.Close(); err != nil {
+					resStatusLine = response.New500StatusLine(http.Version11)
+				}
+			}
+			resStatusLine = response.New201StatusLine(http.Version11)
 		}
 	default:
 		resStatusLine = response.New404StatusLine(http.Version11)

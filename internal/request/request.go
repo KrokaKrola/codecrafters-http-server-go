@@ -3,6 +3,7 @@ package request
 import (
 	"bufio"
 	"bytes"
+	"strconv"
 	"strings"
 
 	"github.com/codecrafters-io/http-server-starter-go/internal/http"
@@ -33,6 +34,12 @@ func (r *Request) Parse() error {
 		return err
 	}
 	r.Headers = headers
+
+	body, err := r.parseBody()
+	if err != nil {
+		return err
+	}
+	r.Body = body
 
 	return nil
 }
@@ -83,4 +90,28 @@ func (r *Request) parseHeaders() (*Headers, error) {
 	}
 
 	return headers, nil
+}
+
+func (r *Request) parseBody() (*Body, error) {
+	body := NewBody()
+	cl, ok := r.Headers.Get("Content-Length")
+	if !ok {
+		body.SetContent("")
+		return body, nil
+	}
+
+	cLen, err := strconv.ParseInt(cl, 10, 64)
+	if err != nil {
+		return nil, err
+	}
+
+	content := make([]byte, cLen)
+
+	if _, err = r.reader.Read(content); err != nil {
+		return nil, err
+	}
+
+	body.SetContent(string(content))
+
+	return body, nil
 }

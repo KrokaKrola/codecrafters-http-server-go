@@ -47,6 +47,14 @@ func New200StatusLine(httpVersion http.Version) *StatusLine {
 	}
 }
 
+func New201StatusLine(httpVersion http.Version) *StatusLine {
+	return &StatusLine{
+		httpVersion:  httpVersion,
+		statusCode:   http.StatusCreated,
+		reasonPhrase: http.StatusCreated.Reason(),
+	}
+}
+
 func New404StatusLine(httpVersion http.Version) *StatusLine {
 	return &StatusLine{
 		httpVersion:  httpVersion,

@@ -4,6 +4,8 @@ import (
 	"bufio"
 	"fmt"
 	"net"
+	"os"
+	"path/filepath"
 	"regexp"
 	"strconv"
 
@@ -13,19 +15,21 @@ import (
 )
 
 type Connection struct {
-	conn   net.Conn
-	reader *bufio.Reader
-	writer *bufio.Writer
+	conn     net.Conn
+	reader   *bufio.Reader
+	writer   *bufio.Writer
+	dirValue string
 }
 
-func NewConnection(conn net.Conn) *Connection {
+func NewConnection(conn net.Conn, dirValue string) *Connection {
 	reader := bufio.NewReader(conn)
 	writer := bufio.NewWriter(conn)
 
 	return &Connection{
-		conn:   conn,
-		reader: reader,
-		writer: writer,
+		conn:     conn,
+		reader:   reader,
+		writer:   writer,
+		dirValue: dirValue,
 	}
 }
 
@@ -52,24 +56,21 @@ func (c *Connection) Handle() {
 var indexUrlRegexp = regexp.MustCompile(`^/($|index\.html$)`)
 var echoUrlRegexp = regexp.MustCompile(`^/echo/(\w+)$`)
 var userAgentRegexp = regexp.MustCompile(`^/user-agent(/)?$`)
+var filesUrlRegexp = regexp.MustCompile(`^/files/(\w+)$`)
 
 func (c *Connection) process(req *request.Request) *response.Response {
 	var resStatusLine *response.StatusLine
-	var resHeaders *response.Headers
-	var resBody *response.Body
+	var resHeaders *response.Headers = response.NewHeaders()
+	var resBody *response.Body = response.NewBody()
 
 	switch {
 	case indexUrlRegexp.MatchString(req.StatusLine.Target):
 		resStatusLine = response.New200StatusLine(http.Version11)
-		resHeaders = response.NewHeaders()
-		resBody = response.NewBody()
 	case echoUrlRegexp.MatchString(req.StatusLine.Target):
 		submatches := echoUrlRegexp.FindStringSubmatch(req.StatusLine.Target)
 		resStatusLine = response.New200StatusLine(http.Version11)
-		resHeaders = response.NewHeaders()
 		resHeaders.SetHeader("Content-Type", "text/plain")
 		resHeaders.SetHeader("Content-Length", strconv.Itoa(len(submatches[1])))
-		resBody = response.NewBody()
 		resBody.SetContent(submatches[1])
 	case userAgentRegexp.MatchString(req.StatusLine.Target):
 		reqUa, ok := req.Headers.Get("User-Agent")
@@ -77,16 +78,25 @@ func (c *Connection) process(req *request.Request) *response.Response {
 			resStatusLine = response.New500StatusLine(http.Version11)
 		} else {
 			resStatusLine = response.New200StatusLine(http.Version11)
-			resHeaders = response.NewHeaders()
 			resHeaders.SetHeader("Content-Type", "text/plain")
 			resHeaders.SetHeader("Content-Length", strconv.Itoa(len(reqUa)))
-			resBody = response.NewBody()
 			resBody.SetContent(reqUa)
+		}
+	case filesUrlRegexp.MatchString(req.StatusLine.Target):
+		submatches := filesUrlRegexp.FindStringSubmatch(req.StatusLine.Target)
+		path := filepath.Join(c.dirValue, submatches[1])
+
+		dat, err := os.ReadFile(path)
+		if err != nil {
+			resStatusLine = response.New404StatusLine(http.Version11)
+		} else {
+			resStatusLine = response.New200StatusLine(http.Version11)
+			resHeaders.SetHeader("Content-Type", "application/octet-stream")
+			resHeaders.SetHeader("Content-Length", strconv.Itoa(len(dat)))
+			resBody.SetContent(string(dat))
 		}
 	default:
 		resStatusLine = response.New404StatusLine(http.Version11)
-		resHeaders = response.NewHeaders()
-		resBody = response.NewBody()
 	}
 
 	return response.NewResponse(resStatusLine, resHeaders, resBody)

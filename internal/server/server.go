@@ -8,14 +8,16 @@ import (
 )
 
 type Server struct {
-	port int
-	host string
+	port     int
+	host     string
+	dirValue string
 }
 
-func NewServer(host string, port int) *Server {
+func NewServer(host string, port int, dirValue string) *Server {
 	return &Server{
-		port: port,
-		host: host,
+		port:     port,
+		host:     host,
+		dirValue: dirValue,
 	}
 }
 
@@ -37,7 +39,7 @@ func (s *Server) Listen() error {
 
 		fmt.Printf("new connection from %s\n", conn.RemoteAddr())
 
-		c := connection.NewConnection(conn)
+		c := connection.NewConnection(conn, s.dirValue)
 		go c.Handle()
 	}
 

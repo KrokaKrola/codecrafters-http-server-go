@@ -8,9 +8,8 @@ import (
 )
 
 type Server struct {
-	listener net.Listener
-	port     int
-	host     string
+	port int
+	host string
 }
 
 func NewServer(host string, port int) *Server {
@@ -20,7 +19,7 @@ func NewServer(host string, port int) *Server {
 	}
 }
 
-func (s Server) Listen() error {
+func (s *Server) Listen() error {
 	addr := net.JoinHostPort(s.host, fmt.Sprintf("%d", s.port))
 	listener, err := net.Listen("tcp", addr)
 	if err != nil {

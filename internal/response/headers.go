@@ -12,7 +12,7 @@ func (h *Headers) SetHeader(name string, value string) {
 	h.content[lowered] = value
 }
 
-func (h *Headers) Stringify() string {
+func (h *Headers) String() string {
 	result := ""
 
 	for key, val := range h.content {

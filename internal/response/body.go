@@ -4,7 +4,7 @@ type Body struct {
 	content string
 }
 
-func (b *Body) Stringify() string {
+func (b *Body) String() string {
 	return b.content
 }
 

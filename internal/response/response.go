@@ -14,11 +14,11 @@ func NewResponse(statusLine *StatusLine, headers *Headers, body *Body) *Response
 	}
 }
 
-func (r *Response) Stringify() string {
-	statusLine := r.StatusLine.Stringify()
+func (r *Response) String() string {
+	statusLine := r.StatusLine.String()
 
-	headers := r.Headers.Stringify()
-	body := r.Body.Stringify()
+	headers := r.Headers.String()
+	body := r.Body.String()
 
 	return statusLine + headers + body
 }

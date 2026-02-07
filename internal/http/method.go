@@ -1,6 +1,8 @@
 package http
 
-import "fmt"
+import (
+	"fmt"
+)
 
 type Method string
 
@@ -9,17 +11,12 @@ func (m Method) String() string {
 }
 
 func ParseMethod(s string) (Method, error) {
-	switch s {
-	case "GET":
-		return Method("GET"), nil
-	case "POST":
-		return Method("POST"), nil
-	case "PUT":
-		return Method("PUT"), nil
-	case "DELETE":
-		return Method("DELETE"), nil
+	m := Method(s)
+	switch m {
+	case GET, POST, PUT, PATCH, DELETE:
+		return m, nil
 	default:
-		return Method(""), fmt.Errorf("invalid HTTP method: %s", s)
+		return "", fmt.Errorf("invalid HTTP method: %s", s)
 	}
 }
 

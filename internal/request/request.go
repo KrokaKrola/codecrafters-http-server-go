@@ -3,31 +3,40 @@ package request
 import (
 	"bufio"
 	"bytes"
+	"context"
+	"fmt"
+	"io"
+	"log/slog"
 	"strconv"
 	"strings"
 
 	"github.com/codecrafters-io/http-server-starter-go/internal/http"
 )
 
+const BytesIn50MB = 50 * 1000 * 1000
+
 type Request struct {
-	reader     *bufio.Reader
-	Body       *Body
-	Headers    *Headers
-	StatusLine *StatusLine
+	reader      *bufio.Reader
+	Body        string
+	Headers     *http.Headers
+	RequestLine *RequestLine
+	Ctx         context.Context
+	Matches     []string
 }
 
-func NewRequest(reader *bufio.Reader) *Request {
+func NewRequest(reader *bufio.Reader, ctx context.Context) *Request {
 	return &Request{
 		reader: reader,
+		Ctx:    ctx,
 	}
 }
 
 func (r *Request) Parse() error {
-	statusLine, err := r.parseStatusLine()
+	requestLine, err := r.parseRequestLine()
 	if err != nil {
 		return err
 	}
-	r.StatusLine = statusLine
+	r.RequestLine = requestLine
 
 	headers, err := r.parseHeaders()
 	if err != nil {
@@ -44,13 +53,17 @@ func (r *Request) Parse() error {
 	return nil
 }
 
-func (r *Request) parseStatusLine() (*StatusLine, error) {
+func (r *Request) parseRequestLine() (*RequestLine, error) {
 	line, _, err := r.reader.ReadLine()
 	if err != nil {
 		return nil, err
 	}
 
 	parts := bytes.Split(line, []byte(" "))
+
+	if len(parts) < 3 {
+		return nil, fmt.Errorf("invalid request line")
+	}
 
 	method, err := http.ParseMethod(string(parts[0]))
 	if err != nil {
@@ -62,15 +75,17 @@ func (r *Request) parseStatusLine() (*StatusLine, error) {
 		return nil, err
 	}
 
-	return NewStatusLine(
+	return NewRequestLine(
 		method,
 		string(parts[1]),
 		version,
 	), nil
 }
 
-func (r *Request) parseHeaders() (*Headers, error) {
-	headers := NewHeaders()
+const MaxNumberOfHeaders = 100
+
+func (r *Request) parseHeaders() (*http.Headers, error) {
+	headers := http.NewHeaders()
 
 	for {
 		line, _, err := r.reader.ReadLine()
@@ -83,35 +98,44 @@ func (r *Request) parseHeaders() (*Headers, error) {
 			break
 		}
 
-		parts := bytes.Split(line, []byte(": "))
+		parts := bytes.SplitN(line, []byte(": "), 2)
+		if len(parts) < 2 {
+			slog.Warn("invalid header structure", "line", line)
+			continue
+		}
+
 		key := string(parts[0])
 		value := strings.Trim(string(parts[1]), " ")
 		headers.Set(key, value)
+
+		if headers.Len() >= MaxNumberOfHeaders {
+			return nil, fmt.Errorf("exceeded max number of headers for one request")
+		}
 	}
 
 	return headers, nil
 }
 
-func (r *Request) parseBody() (*Body, error) {
-	body := NewBody()
+func (r *Request) parseBody() (string, error) {
 	cl, ok := r.Headers.Get("Content-Length")
 	if !ok {
-		body.SetContent("")
-		return body, nil
+		return "", nil
 	}
 
 	cLen, err := strconv.ParseInt(cl, 10, 64)
 	if err != nil {
-		return nil, err
+		return "", err
+	}
+
+	if cLen > BytesIn50MB {
+		return "", fmt.Errorf("body size exceeds server max limit of 50mb")
 	}
 
 	content := make([]byte, cLen)
 
-	if _, err = r.reader.Read(content); err != nil {
-		return nil, err
+	if _, err = io.ReadFull(r.reader, content); err != nil {
+		return "", err
 	}
 
-	body.SetContent(string(content))
-
-	return body, nil
+	return string(content), nil
 }

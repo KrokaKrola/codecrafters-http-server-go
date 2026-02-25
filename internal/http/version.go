@@ -9,9 +9,10 @@ func (v Version) String() string {
 }
 
 func ParseVersion(s string) (Version, error) {
-	switch s {
-	case "HTTP/1.1":
-		return Version("HTTP/1.1"), nil
+	v := Version(s)
+	switch v {
+	case Version11:
+		return v, nil
 	default:
 		return Version(""), fmt.Errorf("invalid http version: %s", s)
 	}

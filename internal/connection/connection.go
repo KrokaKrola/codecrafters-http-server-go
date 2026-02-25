@@ -58,6 +58,13 @@ func (c *Connection) Handle(ctx context.Context) {
 
 		res := c.router.Match(req)
 
+		connection, ok := req.Headers.Get("Connection")
+		isClose := ok && connection == "close"
+
+		if isClose {
+			res.Headers.Set("Connection", connection)
+		}
+
 		if _, err := c.writer.WriteString(res.String()); err != nil {
 			slog.Error("error while writing response", "err", err)
 			return
@@ -65,6 +72,10 @@ func (c *Connection) Handle(ctx context.Context) {
 
 		if err := c.writer.Flush(); err != nil {
 			slog.Error("error trying to flush writer", "err", err)
+			return
+		}
+
+		if isClose {
 			return
 		}
 	}

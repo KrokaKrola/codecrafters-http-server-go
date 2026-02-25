@@ -3,6 +3,8 @@ package connection
 import (
 	"bufio"
 	"context"
+	"errors"
+	"io"
 	"log/slog"
 	"net"
 
@@ -37,21 +39,33 @@ func (c *Connection) Handle(ctx context.Context) {
 		}
 	}(c.conn)
 
-	req := request.NewRequest(c.reader, ctx)
-	if err := req.Parse(); err != nil {
-		slog.Error("error while parsing request", "err", err)
-		return
-	}
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		default:
+		}
 
-	res := c.router.Match(req)
+		req := request.NewRequest(c.reader, ctx)
+		if err := req.Parse(); err != nil {
+			if errors.Is(err, io.EOF) {
+				return
+			}
 
-	if _, err := c.writer.WriteString(res.String()); err != nil {
-		slog.Error("error while writing response", "err", err)
-		return
-	}
+			slog.Error("error while parsing request", "err", err)
+			return
+		}
 
-	if err := c.writer.Flush(); err != nil {
-		slog.Error("error trying to flush writer", "err", err)
-		return
+		res := c.router.Match(req)
+
+		if _, err := c.writer.WriteString(res.String()); err != nil {
+			slog.Error("error while writing response", "err", err)
+			return
+		}
+
+		if err := c.writer.Flush(); err != nil {
+			slog.Error("error trying to flush writer", "err", err)
+			return
+		}
 	}
 }

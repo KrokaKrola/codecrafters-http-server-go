@@ -14,9 +14,9 @@ func HandleEcho() router.HandlerFunc {
 		res := response.NewResponseByStatusCode(http.StatusOK)
 		res.Headers.Set("Content-Type", "text/plain")
 
-		acceptEncoding, ok := req.Headers.Get("Accept-Encoding")
-		if ok && acceptEncoding == "gzip" {
-			res.Headers.Set("Content-Encoding", acceptEncoding)
+		encodings := http.GetSupportedEncodings(req.Headers)
+		if len(encodings) > 0 {
+			res.Headers.Set("Content-Encoding", "gzip")
 		} else {
 			res.Headers.Set("Content-Length", strconv.Itoa(len(req.Matches[1])))
 			res.Body = req.Matches[1]

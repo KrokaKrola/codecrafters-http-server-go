@@ -1,6 +1,9 @@
 package http
 
-import "strings"
+import (
+	"slices"
+	"strings"
+)
 
 type Headers struct {
 	content map[string]string
@@ -51,6 +54,28 @@ func capitalize(key string) string {
 	}
 
 	return strings.ToUpper(key[0:1]) + key[1:]
+}
+
+var supportedEncodings = []string{"gzip"}
+
+func GetSupportedEncodings(h *Headers) []string {
+	acceptEncoding, ok := h.Get("Accept-Encoding")
+	result := []string{}
+	if !ok {
+		return result
+	}
+
+	encodings := strings.SplitSeq(acceptEncoding, ",")
+
+	for el := range encodings {
+		el = strings.TrimSpace(el)
+
+		if slices.Contains(supportedEncodings, el) {
+			result = append(result, el)
+		}
+	}
+
+	return result
 }
 
 func NewHeaders() *Headers {
